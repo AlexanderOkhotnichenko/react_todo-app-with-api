@@ -7,6 +7,7 @@ type Props = {
   onError: (message: string) => void;
   onSubmit: (title: string) => Promise<void>;
   onFocus: React.RefObject<HTMLInputElement>;
+  onClick: () => void;
 };
 
 const EMPTY_TITLE_ERROR = 'Title should not be empty';
@@ -16,6 +17,7 @@ export const TodoHeader: React.FC<Props> = ({
   onError,
   onSubmit,
   onFocus,
+  onClick,
 }) => {
   const [title, setTitle] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,13 +49,16 @@ export const TodoHeader: React.FC<Props> = ({
   return (
     <>
       <header className="todoapp__header">
-        <button
-          type="button"
-          className={cn('todoapp__toggle-all', {
-            active: isAllCompleted,
-          })}
-          data-cy="ToggleAllButton"
-        />
+        {todos.length > 0 && (
+          <button
+            type="button"
+            className={cn('todoapp__toggle-all', {
+              active: isAllCompleted,
+            })}
+            data-cy="ToggleAllButton"
+            onClick={onClick}
+          />
+        )}
 
         <form onSubmit={handleSubmit}>
           <input

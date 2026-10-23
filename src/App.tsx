@@ -2,7 +2,13 @@
 /* eslint-disable jsx-a11y/control-has-associated-label */
 import React, { useEffect, useRef, useState } from 'react';
 import { UserWarning } from './UserWarning';
-import { getTodos, postTodo, deleteTodo, USER_ID } from './api/todos';
+import {
+  getTodos,
+  postTodo,
+  deleteTodo,
+  updateTodo,
+  USER_ID,
+} from './api/todos';
 import { TodoItem } from './components/TodoItem';
 import { Todo } from './types/Todo';
 import { TodoFooter } from './components/TodoFooter';
@@ -14,6 +20,7 @@ enum ErrorMessage {
   LOAD_TODOS = 'Unable to load todos',
   ADD_TODO = 'Unable to add a todo',
   DELETE_TODO = 'Unable to delete a todo',
+  UPDATE_TODO = 'Unable to update a todo',
 }
 
 export const App: React.FC = () => {
@@ -22,7 +29,7 @@ export const App: React.FC = () => {
   const [status, setStatus] = useState<Status>('all');
 
   const [tempTodo, setTempTodo] = useState<Todo | null>(null);
-  const [deleteOnTodo, setDeleteOnTodo] = useState<number[]>([]);
+  const [loadingIds, setLoadingIds] = useState<number[]>([]);
   const inputFocusRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -61,7 +68,7 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteTodo = (id: number): Promise<void> => {
-    setDeleteOnTodo(current => [...current, id]);
+    setLoadingIds(current => [...current, id]);
 
     return deleteTodo(id)
       .then(() => {
@@ -71,9 +78,40 @@ export const App: React.FC = () => {
         setErrorMessage(ErrorMessage.DELETE_TODO);
       })
       .finally(() => {
-        setDeleteOnTodo(current => current.filter(item => item !== id));
+        setLoadingIds(current => current.filter(item => item !== id));
         inputFocusRef.current?.focus();
       });
+  };
+
+  const handleUpdateTodo = (id: number, data: Partial<Omit<Todo, 'id'>>) => {
+    setLoadingIds(current => [...current, id]);
+
+    return updateTodo(id, data)
+      .then(updated => {
+        setTodos(current =>
+          current.map(todo => (todo.id === id ? updated : todo)),
+        );
+      })
+      .catch(error => {
+        setErrorMessage(ErrorMessage.UPDATE_TODO);
+        throw error;
+      })
+      .finally(() => {
+        setLoadingIds(current => current.filter(item => item !== id));
+      });
+  };
+
+  const handleToggleAll = () => {
+    setErrorMessage('');
+
+    const isAllCompleted = todos.every(todo => todo.completed);
+    const newStatus = !isAllCompleted;
+
+    todos
+      .filter(todo => todo.completed !== newStatus)
+      .forEach(todo =>
+        handleUpdateTodo(todo.id, { completed: newStatus }).catch(() => {}),
+      );
   };
 
   const handleClearCompleted = () => {
@@ -109,6 +147,7 @@ export const App: React.FC = () => {
           onError={setErrorMessage}
           onSubmit={handleAddTodo}
           onFocus={inputFocusRef}
+          onClick={handleToggleAll}
         />
 
         {(todos.length > 0 || tempTodo) && (
@@ -123,7 +162,19 @@ export const App: React.FC = () => {
 
                     return handleDeleteTodo(id);
                   }}
-                  isLoading={deleteOnTodo.includes(todo.id)}
+                  isLoading={loadingIds.includes(todo.id)}
+                  onToggle={() => {
+                    setErrorMessage('');
+
+                    handleUpdateTodo(todo.id, {
+                      completed: !todo.completed,
+                    }).catch(() => {});
+                  }}
+                  onRename={(id, title) => {
+                    setErrorMessage('');
+
+                    return handleUpdateTodo(id, { title });
+                  }}
                 />
               ))}
               {tempTodo && <TodoItem todo={tempTodo} isLoading />}
